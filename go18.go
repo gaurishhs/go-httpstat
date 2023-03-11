@@ -1,4 +1,4 @@
-// +build go1.8
+//go:build go1.8
 
 package httpstat
 
@@ -13,6 +13,7 @@ import (
 // This must be called after reading response body.
 func (r *Result) End(t time.Time) {
 	r.transferDone = t
+	r.t5 = t // for Formatter
 
 	// This means result is empty (it does nothing).
 	// Skip setting value(contentTransfer and total will be zero).
@@ -20,21 +21,21 @@ func (r *Result) End(t time.Time) {
 		return
 	}
 
-	r.contentTransfer = r.transferDone.Sub(r.transferStart)
-	r.total = r.transferDone.Sub(r.dnsStart)
+	r.ContentTransfer = r.transferDone.Sub(r.transferStart)
+	r.Total = r.transferDone.Sub(r.dnsStart)
 }
 
-// ContentTransfer returns the duration of content transfer time.
+// ContentTransferDuration returns the duration of content transfer time.
 // It is from first response byte to the given time. The time must
 // be time after read body (go-httpstat can not detect that time).
-func (r *Result) ContentTransfer(t time.Time) time.Duration {
+func (r *Result) ContentTransferDuration(t time.Time) time.Duration {
 	return t.Sub(r.serverDone)
 }
 
-// Total returns the duration of total http request.
+// TotalDuration returns the duration of total http request.
 // It is from dns lookup start time to the given time. The
 // time must be time after read body (go-httpstat can not detect that time).
-func (r *Result) Total(t time.Time) time.Duration {
+func (r *Result) TotalDuration(t time.Time) time.Duration {
 	return t.Sub(r.dnsStart)
 }
 
@@ -42,6 +43,7 @@ func withClientTrace(ctx context.Context, r *Result) context.Context {
 	return httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
 		DNSStart: func(i httptrace.DNSStartInfo) {
 			r.dnsStart = time.Now()
+			r.t0 = r.dnsStart
 		},
 
 		DNSDone: func(i httptrace.DNSDoneInfo) {
@@ -86,6 +88,7 @@ func withClientTrace(ctx context.Context, r *Result) context.Context {
 			if i.Reused {
 				r.isReused = true
 			}
+			r.ConnectedTo = i.Conn.RemoteAddr()
 		},
 
 		WroteRequest: func(info httptrace.WroteRequestInfo) {

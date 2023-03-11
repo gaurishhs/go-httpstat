@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"testing"
@@ -58,7 +57,7 @@ func TestHTTPStat_HTTPS(t *testing.T) {
 		t.Fatal("client.Do failed:", err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
 		t.Fatal("io.Copy failed:", err)
 	}
 	res.Body.Close()
@@ -68,7 +67,7 @@ func TestHTTPStat_HTTPS(t *testing.T) {
 		t.Fatal("isTLS should be true")
 	}
 
-	for k, d := range result.durations() {
+	for k, d := range result.Durations() {
 		if d <= 0*time.Millisecond {
 			t.Fatalf("expect %s to be non-zero", k)
 		}
@@ -85,7 +84,7 @@ func TestHTTPStat_HTTP(t *testing.T) {
 		t.Fatal("client.Do failed:", err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
 		t.Fatal("io.Copy failed:", err)
 	}
 	res.Body.Close()
@@ -100,7 +99,7 @@ func TestHTTPStat_HTTP(t *testing.T) {
 	}
 
 	// Except TLS should be non zero
-	durations := result.durations()
+	durations := result.Durations()
 	delete(durations, "TLSHandshake")
 
 	for k, d := range durations {
@@ -122,7 +121,7 @@ func TestHTTPStat_KeepAlive(t *testing.T) {
 		t.Fatal("Request failed:", err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res1.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res1.Body); err != nil {
 		t.Fatal("Copy body failed:", err)
 	}
 	res1.Body.Close()
@@ -136,7 +135,7 @@ func TestHTTPStat_KeepAlive(t *testing.T) {
 		t.Fatal("Request failed:", err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res2.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res2.Body); err != nil {
 		t.Fatal("Copy body failed:", err)
 	}
 	res2.Body.Close()
@@ -180,7 +179,7 @@ func TestHTTPStat_beforeGO17(t *testing.T) {
 		t.Fatal("client.Do failed:", err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
 		t.Fatal("io.Copy failed:", err)
 	}
 	res.Body.Close()
@@ -205,33 +204,34 @@ func TestTotal_Zero(t *testing.T) {
 	result.End(time.Now())
 
 	zero := 0 * time.Millisecond
-	if result.total != zero {
-		t.Fatalf("Total time is %d, want %d", result.total, zero)
+	if result.Total != zero {
+		t.Fatalf("Total time is %d, want %d", result.Total, zero)
 	}
 
-	if result.contentTransfer != zero {
-		t.Fatalf("Total time is %d, want %d", result.contentTransfer, zero)
+	if result.ContentTransfer != zero {
+		t.Fatalf("Total time is %d, want %d", result.ContentTransfer, zero)
 	}
 }
 
+var testResult = Result{
+	DNSLookup:        100 * time.Millisecond,
+	TCPConnection:    100 * time.Millisecond,
+	TLSHandshake:     100 * time.Millisecond,
+	ServerProcessing: 100 * time.Millisecond,
+	ContentTransfer:  100 * time.Millisecond,
+
+	NameLookup:    100 * time.Millisecond,
+	Connect:       100 * time.Millisecond,
+	Pretransfer:   100 * time.Millisecond,
+	StartTransfer: 100 * time.Millisecond,
+	Total:         100 * time.Millisecond,
+
+	t5: time.Now(),
+}
+
 func TestHTTPStat_Formatter(t *testing.T) {
-	result := Result{
-		DNSLookup:        100 * time.Millisecond,
-		TCPConnection:    100 * time.Millisecond,
-		TLSHandshake:     100 * time.Millisecond,
-		ServerProcessing: 100 * time.Millisecond,
-		contentTransfer:  100 * time.Millisecond,
 
-		NameLookup:    100 * time.Millisecond,
-		Connect:       100 * time.Millisecond,
-		Pretransfer:   100 * time.Millisecond,
-		StartTransfer: 100 * time.Millisecond,
-		total:         100 * time.Millisecond,
-
-		t5: time.Now(),
-	}
-
-	want := `DNS lookup:         100 ms
+	const want = `DNS lookup:         100 ms
 TCP connection:     100 ms
 TLS handshake:      100 ms
 Server processing:  100 ms
@@ -244,8 +244,22 @@ Start Transfer:  100 ms
 Total:           100 ms
 `
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%+v", result)
+	fmt.Fprintf(&buf, "%+v", testResult)
 	if got := buf.String(); want != got {
 		t.Fatalf("expect to be eq:\n\nwant:\n\n%s\ngot:\n\n%s\n", want, got)
+	}
+}
+
+func BenchmarkHTTPStat_Formatter(b *testing.B) {
+	for _, formatter := range []string{"%+v", "%v"} {
+		b.Run(formatter, func(b *testing.B) {
+			var buf bytes.Buffer
+
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				fmt.Fprintf(&buf, formatter, testResult)
+				buf.Reset()
+			}
+		})
 	}
 }

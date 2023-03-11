@@ -2,7 +2,6 @@ package httpstat_test
 
 import (
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -27,7 +26,7 @@ func Example() {
 		log.Fatal(err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
 		log.Fatal(err)
 	}
 	res.Body.Close()

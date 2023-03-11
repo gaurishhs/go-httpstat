@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/tcnksm/go-httpstat"
+	"github.com/gaurishhs/go-httpstat"
 )
 
 func main() {
@@ -32,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
 		log.Fatal(err)
 	}
 	res.Body.Close()
